@@ -88,7 +88,7 @@ docker-compose logs -f
 
 ```bash
 # 使用 Gitee 镜像源（速度更快）
-bash <(curl -fsSL https://gitee.com/kyeo-hub/wgq/raw/main/install-remote.sh) \
+bash <(curl -fsSL https://gitee.com/kyeo/wgq/raw/main/install-remote.sh) \
   <YOUR_TOKEN> \
   <YOUR_AES_KEY> \
   8888

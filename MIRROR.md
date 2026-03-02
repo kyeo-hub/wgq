@@ -2,6 +2,8 @@
 
 这是 [wgq](https://github.com/kyeo-hub/wgq) 的 Gitee 镜像仓库，用于中国大陆地区加速访问。
 
+**Gitee**: https://gitee.com/kyeo/wgq
+
 ## 快速安装
 
 ### 一键安装脚本（推荐）

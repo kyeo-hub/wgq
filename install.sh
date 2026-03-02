@@ -94,7 +94,9 @@ cd "$INSTALL_DIR"
 log_info "下载 wgq-bot..."
 DOWNLOAD_URLS=(
     # Gitee 镜像（中国大陆推荐）
-    "https://gitee.com/kyeo-hub/wgq/releases/latest/download/wgq-linux-amd64.tar.gz"
+    "https://gitee.com/kyeo/wgq/releases/latest/download/wgq-linux-amd64.tar.gz"
+    # Gitee raw 直链（备用）
+    "https://gitee.com/kyeo/wgq/raw/main/wgq-linux-amd64.tar.gz"
     # GitHub CDN
     "https://ghproxy.com/https://github.com/kyeo-hub/wgq/releases/latest/download/wgq-linux-amd64.tar.gz"
     # GitHub 原始地址
