@@ -1,0 +1,17 @@
+{
+  "wechat": {
+    "encoding_aes_key": "YOUR_ENCODING_AES_KEY_HERE",
+    "token": "YOUR_TOKEN_HERE",
+    "bot_id": ""
+  },
+  "server": {
+    "addr": ":8080",
+    "callback_path": "/wechat/callback"
+  },
+  "qwen": {
+    "work_dir": "/tmp/qwen-workspace",
+    "timeout_seconds": 300,
+    "max_output_lines": 500
+  },
+  "allowed_users": []
+}

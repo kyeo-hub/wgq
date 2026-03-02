@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  wgq-bot:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.json:/root/config.json:ro
+      - qwen-workspace:/tmp/qwen-workspace
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+
+volumes:
+  qwen-workspace:
