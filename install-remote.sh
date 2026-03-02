@@ -86,18 +86,35 @@ cd "$INSTALL_DIR"
 # 下载二进制
 log_info "下载 wgq-bot..."
 
-# 尝试多个下载源
+# 多个下载源（按优先级排序）
 DOWNLOAD_URLS=(
+    # Gitee 镜像（中国大陆推荐）
+    "https://gitee.com/kyeo-hub/wgq/releases/latest/download/wgq-linux-amd64.tar.gz"
+    # GitHub CDN
+    "https://ghproxy.com/https://github.com/kyeo-hub/wgq/releases/latest/download/wgq-linux-amd64.tar.gz"
+    # GitHub 原始地址
     "https://github.com/kyeo-hub/wgq/releases/latest/download/wgq-linux-amd64.tar.gz"
+    # raw.githubusercontent.com
     "https://raw.githubusercontent.com/kyeo-hub/wgq/main/wgq-linux-amd64.tar.gz"
+    # 备用 CDN
+    "https://cdn.jsdelivr.net/gh/kyeo-hub/wgq/wgq-linux-amd64.tar.gz"
 )
 
 DOWNLOADED=false
 for url in "${DOWNLOAD_URLS[@]}"; do
+    log_info "尝试从 $url 下载..."
     if curl -fsSL --max-time 60 "$url" -o wgq.tar.gz 2>/dev/null; then
-        log_info "从 $url 下载成功"
-        DOWNLOADED=true
-        break
+        # 验证是否为有效的 tar.gz 文件
+        if tar -tzf wgq.tar.gz &>/dev/null; then
+            log_info "从 $url 下载成功"
+            DOWNLOADED=true
+            break
+        else
+            log_warn "下载的文件无效，尝试下一个源..."
+            rm -f wgq.tar.gz
+        fi
+    else
+        log_warn "从 $url 下载失败，尝试下一个源..."
     fi
 done
 
@@ -106,8 +123,16 @@ if [ "$DOWNLOADED" = true ]; then
     rm wgq.tar.gz
     chmod +x wgq
 else
-    log_error "所有下载源失败，请手动上传 wgq-linux-amd64.tar.gz 或使用 GitHub Releases"
-    log_info "下载地址：https://github.com/kyeo-hub/wgq/releases"
+    log_error "所有下载源失败！"
+    echo ""
+    log_info "请手动下载并上传文件："
+    echo "  1. 访问：https://github.com/kyeo-hub/wgq/releases"
+    echo "  2. 下载：wgq-linux-amd64.tar.gz"
+    echo "  3. 上传到服务器：/opt/wgq-bot/"
+    echo "  4. 运行：cd /opt/wgq-bot && tar -xzf wgq-linux-amd64.tar.gz"
+    echo ""
+    log_info "或使用 Gitee 镜像（中国大陆）："
+    echo "  https://gitee.com/kyeo-hub/wgq/releases"
     exit 1
 fi
 

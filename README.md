@@ -84,6 +84,22 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
+### 4. 中国大陆一键安装（推荐）
+
+```bash
+# 使用 Gitee 镜像源（速度更快）
+bash <(curl -fsSL https://gitee.com/kyeo-hub/wgq/raw/main/install-remote.sh) \
+  <YOUR_TOKEN> \
+  <YOUR_AES_KEY> \
+  8888
+
+# 或使用 GitHub + ghproxy 加速
+bash <(curl -fsSL https://raw.githubusercontent.com/kyeo-hub/wgq/main/install-remote.sh) \
+  <YOUR_TOKEN> \
+  <YOUR_AES_KEY> \
+  8888
+```
+
 ## 配置说明
 
 ### config.json
