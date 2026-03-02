@@ -56,12 +56,34 @@ fi
 
 TOKEN="$1"
 AES_KEY="$2"
-PORT="${3:-8080}"
+PORT="${3:-8888}"
 
 log_info "配置信息:"
 echo "  安装目录：$INSTALL_DIR"
 echo "  服务端口：$PORT"
 echo ""
+
+# 检查端口是否被占用
+check_port() {
+    if command -v ss &> /dev/null; then
+        ss -tlnp | grep -q ":$PORT "
+    elif command -v netstat &> /dev/null; then
+        netstat -tlnp | grep -q ":$PORT "
+    else
+        return 1
+    fi
+}
+
+if check_port; then
+    log_error "端口 $PORT 已被占用!"
+    log_info "查看占用进程：lsof -i :$PORT"
+    log_info "解决方案:"
+    echo "  1. 停止占用端口的进程"
+    echo "  2. 或使用其他端口运行本脚本:"
+    echo "     ./install.sh $TOKEN $AES_KEY 9000"
+    exit 1
+fi
+log_info "端口 $PORT 可用"
 
 # 1. 创建安装目录
 log_info "创建安装目录..."

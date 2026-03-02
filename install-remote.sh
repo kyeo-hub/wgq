@@ -42,7 +42,7 @@ fi
 
 TOKEN="$1"
 AES_KEY="$2"
-PORT="${3:-8080}"
+PORT="${3:-8888}"
 
 INSTALL_DIR="/opt/wgq-bot"
 
@@ -50,6 +50,33 @@ log_info "开始安装 wgq-bot..."
 log_info "安装目录：$INSTALL_DIR"
 log_info "服务端口：$PORT"
 echo ""
+
+# 检查端口是否被占用
+check_port() {
+    if command -v ss &> /dev/null; then
+        ss -tlnp | grep -q ":$PORT "
+    elif command -v netstat &> /dev/null; then
+        netstat -tlnp | grep -q ":$PORT "
+    else
+        # 尝试绑定端口来检测
+        return 1
+    fi
+}
+
+if check_port; then
+    log_error "端口 $PORT 已被占用!"
+    log_info "使用以下命令查看占用进程:"
+    echo "  lsof -i :$PORT"
+    echo "  或"
+    echo "  ss -tlnp | grep :$PORT"
+    echo ""
+    log_info "解决方案:"
+    echo "  1. 停止占用端口的进程"
+    echo "  2. 或使用其他端口运行本脚本:"
+    echo "     bash <(curl -fsSL ...) $TOKEN $AES_KEY 9000"
+    exit 1
+fi
+log_info "端口 $PORT 可用"
 
 # 创建目录
 log_info "创建安装目录..."
@@ -145,9 +172,11 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=$INSTALL_DIR
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/lib/node_modules/.bin"
 ExecStart=$INSTALL_DIR/wgq -config $INSTALL_DIR/config.json
 Restart=always
 RestartSec=10
+LimitNOFILE=65535
 
 [Install]
 WantedBy=multi-user.target
