@@ -58,15 +58,29 @@ cd "$INSTALL_DIR"
 
 # 下载二进制
 log_info "下载 wgq-bot..."
-RELEASE_URL="https://github.com/kyeo-hub/wgq/releases/latest/download/wgq-linux-amd64.tar.gz"
 
-if curl -fsSL --max-time 60 "$RELEASE_URL" -o wgq.tar.gz 2>/dev/null; then
+# 尝试多个下载源
+DOWNLOAD_URLS=(
+    "https://github.com/kyeo-hub/wgq/releases/latest/download/wgq-linux-amd64.tar.gz"
+    "https://raw.githubusercontent.com/kyeo-hub/wgq/main/wgq-linux-amd64.tar.gz"
+)
+
+DOWNLOADED=false
+for url in "${DOWNLOAD_URLS[@]}"; do
+    if curl -fsSL --max-time 60 "$url" -o wgq.tar.gz 2>/dev/null; then
+        log_info "从 $url 下载成功"
+        DOWNLOADED=true
+        break
+    fi
+done
+
+if [ "$DOWNLOADED" = true ]; then
     tar -xzf wgq.tar.gz
     rm wgq.tar.gz
     chmod +x wgq
-    log_info "下载完成"
 else
-    log_error "下载失败，请检查网络或手动上传 wgq-linux-amd64.tar.gz"
+    log_error "所有下载源失败，请手动上传 wgq-linux-amd64.tar.gz 或使用 GitHub Releases"
+    log_info "下载地址：https://github.com/kyeo-hub/wgq/releases"
     exit 1
 fi
 
@@ -96,17 +110,24 @@ EOF
 if ! command -v node &> /dev/null; then
     log_info "安装 Node.js..."
     if [ -f /etc/debian_version ]; then
-        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+        # Debian/Ubuntu - 安装 Node.js 20 LTS
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
         apt-get install -y nodejs
     elif [ -f /etc/redhat-release ]; then
-        curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+        # CentOS/RHEL - 安装 Node.js 20 LTS
+        curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
         yum install -y nodejs
     else
-        log_error "不支持的系统，请手动安装 Node.js"
+        log_error "不支持的系统，请手动安装 Node.js (建议 v20+)"
         exit 1
     fi
 else
-    log_info "Node.js 已安装"
+    NODE_VERSION=$(node --version)
+    log_info "Node.js 已安装：$NODE_VERSION"
+    # 检查版本是否 >= 18
+    if [ "$(node --version | cut -d'.' -f1 | tr -d 'v')" -lt 18 ]; then
+        log_warn "Node.js 版本过低，建议升级到 v20 LTS"
+    fi
 fi
 
 # 安装 qwen

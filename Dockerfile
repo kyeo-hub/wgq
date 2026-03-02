@@ -20,7 +20,7 @@ FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
 
-# 安装 qwen (需要 Node.js)
+# 安装 qwen (需要 Node.js 20+)
 RUN apk add --no-cache nodejs npm
 RUN npm install -g @qwen-code/qwen-code@latest
 

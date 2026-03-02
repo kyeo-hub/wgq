@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o wgq ./cmd/main.go
+          tar -czvf wgq-linux-amd64.tar.gz wgq config.example.json
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            wgq-linux-amd64.tar.gz
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: wgq-linux-amd64.tar.gz
+
+      - name: Upload to latest release (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          # 获取最新的 release
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .tag_name)
+          if [ "$LATEST_RELEASE" = "null" ]; then
+            echo "No release found, creating one..."
+            gh release create v0.1.0 wgq-linux-amd64.tar.gz --title "v0.1.0" --notes "Auto release"
+          else
+            echo "Uploading to $LATEST_RELEASE..."
+            gh release upload $LATEST_RELEASE wgq-linux-amd64.tar.gz --clobber
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}

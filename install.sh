@@ -118,19 +118,24 @@ if ! command -v node &> /dev/null; then
     
     # 检测系统类型
     if [ -f /etc/debian_version ]; then
-        # Debian/Ubuntu
-        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+        # Debian/Ubuntu - 安装 Node.js 20 LTS
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
         apt-get install -y nodejs
     elif [ -f /etc/redhat-release ]; then
-        # CentOS/RHEL
-        curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+        # CentOS/RHEL - 安装 Node.js 20 LTS
+        curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
         yum install -y nodejs
     else
-        log_error "不支持的系统类型，请手动安装 Node.js"
+        log_error "不支持的系统类型，请手动安装 Node.js (建议 v20+)"
         exit 1
     fi
 else
-    log_info "Node.js 已安装：$(node --version)"
+    NODE_VERSION=$(node --version)
+    log_info "Node.js 已安装：$NODE_VERSION"
+    # 检查版本是否 >= 18
+    if [ "$(node --version | cut -d'.' -f1 | tr -d 'v')" -lt 18 ]; then
+        log_warn "Node.js 版本过低，建议升级到 v20 LTS"
+    fi
 fi
 
 # 6. 安装 qwen
