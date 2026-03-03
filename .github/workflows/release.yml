@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
+      artifact_path: ${{ steps.build.outputs.artifact_path }}
 
     steps:
       - name: Checkout
@@ -36,9 +37,11 @@ jobs:
           go-version: '1.21'
 
       - name: Build
+        id: build
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o wgq ./cmd/main.go
           tar -czvf wgq-linux-amd64.tar.gz wgq config.example.json README.md
+          echo "artifact_path=$(pwd)/wgq-linux-amd64.tar.gz" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         id: create_github_release
@@ -50,15 +53,6 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-
-      - name: Upload to GitHub Release (workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          gh release upload "$VERSION" wgq-linux-amd64.tar.gz --clobber 2>/dev/null || \
-          gh release create "$VERSION" wgq-linux-amd64.tar.gz --title "$VERSION" --notes "Auto release"
-        env:
-          GH_TOKEN: ${{ github.token }}
 
   gitee-release:
     needs: [build]
@@ -72,45 +66,87 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build release artifact
+      - name: Download artifact from GitHub
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o wgq ./cmd/main.go
-          tar -czvf wgq-linux-amd64.tar.gz wgq config.example.json README.md
+          gh release download ${{ needs.build.outputs.version }} --pattern "wgq-linux-amd64.tar.gz" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Get version
         id: get_version
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
-          if [ "$VERSION" = "$GITHUB_REF" ]; then
-            VERSION="v0.1.0"
-          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Check if release exists
+        id: check_release
+        run: |
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITEE_TOKEN }}" \
+            "https://gitee.com/api/v5/repos/kyeo/wgq/releases/tags/${{ steps.get_version.outputs.version }}")
+          if echo "$RESPONSE" | jq -e '.id' > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release does not exist, will create"
+          fi
+
       - name: Create Gitee Release
-        uses: ncipollo/release-action@v1
-        with:
-          owner: kyeo
-          repo: wgq
-          tag: ${{ steps.get_version.outputs.version }}
-          name: ${{ steps.get_version.outputs.version }}
-          body: |
-            Auto release from GitHub Actions
-            
-            ## 安装说明
-            
-            ### 中国大陆（推荐）
-            ```bash
-            bash <(curl -fsSL https://gitee.com/kyeo/wgq/raw/main/install-remote.sh) <TOKEN> <AES_KEY> 8888
-            ```
-            
-            ### 全球
-            ```bash
-            bash <(curl -fsSL https://raw.githubusercontent.com/kyeo-hub/wgq/main/install-remote.sh) <TOKEN> <AES_KEY> 8888
-            ```
-          artifacts: "wgq-linux-amd64.tar.gz"
-          token: ${{ secrets.GITEE_TOKEN }}
-          allowUpdates: true
-          replacesArtifacts: true
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITEE_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "https://gitee.com/api/v5/repos/kyeo/wgq/releases" \
+            -d "{
+              \"access_token\": \"${{ secrets.GITEE_TOKEN }}\",
+              \"tag_name\": \"${{ steps.get_version.outputs.version }}\",
+              \"name\": \"${{ steps.get_version.outputs.version }}\",
+              \"body\": \"wgq-bot v${{ steps.get_version.outputs.version }} - 企业微信智能机器人\\n\\n## 安装说明\\n\\n### 中国大陆（推荐）\\n\\`\\`\\`bash\\nbash <(curl -fsSL https://gitee.com/kyeo/wgq/raw/main/install-remote.sh) <TOKEN> <AES_KEY> 8888\\n\\`\\`\\`\\n\\n### 全球\\n\\`\\`\\`bash\\nbash <(curl -fsSL https://raw.githubusercontent.com/kyeo-hub/wgq/main/install-remote.sh) <TOKEN> <AES_KEY> 8888\\n\\`\\`\\`\",
+              \"prerelease\": false,
+              \"target_commitish\": \"main\"
+            }")
+          echo "Create release response: $RESPONSE"
+          RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
+          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+            echo "Failed to create release"
+            exit 1
+          fi
+          echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
+        id: create_release
+
+      - name: Get existing release ID
+        if: steps.check_release.outputs.exists == 'true'
+        run: |
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITEE_TOKEN }}" \
+            "https://gitee.com/api/v5/repos/kyeo/wgq/releases/tags/${{ steps.get_version.outputs.version }}")
+          RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
+          echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
+        id: get_existing_release
+
+      - name: Delete old attach files
+        run: |
+          RELEASE_ID="${{ steps.create_release.outputs.release_id || steps.get_existing_release.outputs.release_id }}"
+          echo "Deleting old attach files from release $RELEASE_ID"
+          curl -s -X DELETE \
+            -H "Authorization: Bearer ${{ secrets.GITEE_TOKEN }}" \
+            "https://gitee.com/api/v5/repos/kyeo/wgq/releases/$RELEASE_ID/attach_files" || true
+
+      - name: Upload artifact to Gitee Release
+        run: |
+          RELEASE_ID="${{ steps.create_release.outputs.release_id || steps.get_existing_release.outputs.release_id }}"
+          echo "Uploading wgq-linux-amd64.tar.gz to release $RELEASE_ID"
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITEE_TOKEN }}" \
+            -F "file=@wgq-linux-amd64.tar.gz" \
+            "https://gitee.com/api/v5/repos/kyeo/wgq/releases/$RELEASE_ID/attach_files")
+          echo "Upload response: $RESPONSE"
+          ATTACH_ID=$(echo "$RESPONSE" | jq -r '.id')
+          if [ -z "$ATTACH_ID" ] || [ "$ATTACH_ID" = "null" ]; then
+            echo "Failed to upload artifact"
+            exit 1
+          fi
+          echo "Artifact uploaded successfully (Attach ID: $ATTACH_ID)"
 
   gitee-mirror:
     needs: [build]
