@@ -39,7 +39,7 @@
 | Secret Name | 说明 | 获取方式 |
 |-------------|------|----------|
 | `GITEE_PRIVATE_KEY` | Gitee SSH 私钥 | 生成 SSH key 后添加到 Gitee |
-| `GITEE_TOKEN` | Gitee API Token | Gitee → 设置 → 个人令牌 |
+| `GITEE_TOKEN` | Gitee API Token | Gitee → 设置 → 个人令牌（勾选 **projects** 权限） |
 
 ### 3. 生成 Gitee SSH Key
 
@@ -59,7 +59,7 @@ cat gitee_key.pub
 1. 登录 Gitee
 2. 进入 **设置** → **个人令牌**
 3. 点击 **生成新令牌**
-4. 勾选权限：`projects`、`releases`、`pull_requests`
+4. 勾选权限：**`projects`** （此权限已包含 Release 读写）
 5. 复制令牌并保存到 GitHub Secrets
 
 ## 发布新版本
@@ -150,7 +150,7 @@ bash <(curl -fsSL https://gitee.com/kyeo/wgq/raw/main/install-remote.sh) --help
 
 **解决**：
 1. 重新生成 Gitee Token
-2. 确保勾选 `releases` 权限
+2. 确保勾选 `projects` 权限（已包含 Release 读写）
 3. 更新 GitHub Secrets
 
 ### 2. 代码同步失败
