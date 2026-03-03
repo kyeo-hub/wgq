@@ -65,6 +65,7 @@ func main() {
 		cfg.Server.CallbackPath,
 		msgHandler,
 		cfg.Server.Addr,
+		cfg.WeChat.BotID, // corpID
 	)
 	if err != nil {
 		log.Fatalf("Failed to create callback server: %v", err)

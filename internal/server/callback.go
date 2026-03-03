@@ -31,7 +31,7 @@ type MessageHandler interface {
 }
 
 // NewCallbackServer 创建回调服务器
-func NewCallbackServer(aesKey, token, callbackPath string, handler MessageHandler, addr string) (*CallbackServer, error) {
+func NewCallbackServer(aesKey, token, callbackPath string, handler MessageHandler, addr string, corpID string) (*CallbackServer, error) {
 	wxCrypto, err := crypto.NewWXCrypto(aesKey, token)
 	if err != nil {
 		return nil, fmt.Errorf("init crypto failed: %w", err)
@@ -63,43 +63,52 @@ func (s *CallbackServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 // handleCallback 处理回调请求（支持 GET 验证和 POST 消息）
 func (s *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) {
-	// 获取 URL 参数
 	query := r.URL.Query()
 	timestamp := query.Get("timestamp")
 	nonce := query.Get("nonce")
 	echoStr := query.Get("echostr")
 	signature := query.Get("msg_signature")
 
+	log.Printf("Callback received: method=%s, ts=%s, nonce=%s, sig=%s, echoStr_len=%d",
+		r.Method, timestamp, nonce, signature, len(echoStr))
+
 	// 验证签名
 	if !s.verifySignature(timestamp, nonce, echoStr, signature) {
-		log.Printf("Invalid signature: ts=%s, nonce=%s, sig=%s", timestamp, nonce, signature)
+		log.Printf("Invalid signature: expected=%s", signature)
 		http.Error(w, "Invalid signature", http.StatusForbidden)
 		return
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		// 验证 URL - 直接返回解密后的 echostr
-		plaintext, err := s.crypto.Decrypt(echoStr)
-		if err != nil {
-			log.Printf("Decrypt echostr failed: %v", err)
-			http.Error(w, "Decrypt echostr failed", http.StatusInternalServerError)
-			return
-		}
-		w.Write(plaintext)
-		log.Printf("URL verified successfully")
+		// URL 验证 - 解密并返回 echostr
+		s.handleGetCallback(w, timestamp, nonce, echoStr)
 
 	case http.MethodPost:
-		// 处理消息
-		s.handlePostMessage(w, r)
+		// 消息处理
+		s.handlePostCallback(w, r, timestamp, nonce)
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-// handlePostMessage 处理 POST 消息
-func (s *CallbackServer) handlePostMessage(w http.ResponseWriter, r *http.Request) {
+// handleGetCallback 处理 GET 回调（URL 验证）
+func (s *CallbackServer) handleGetCallback(w http.ResponseWriter, timestamp, nonce, echoStr string) {
+	plaintext, err := s.crypto.Decrypt(echoStr)
+	if err != nil {
+		log.Printf("Decrypt echostr failed: %v", err)
+		http.Error(w, fmt.Sprintf("Decrypt failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// 返回解密后的 echostr
+	w.Write(plaintext)
+	log.Printf("URL verified successfully, echostr: %s", string(plaintext))
+}
+
+// handlePostCallback 处理 POST 回调（消息接收）
+func (s *CallbackServer) handlePostCallback(w http.ResponseWriter, r *http.Request, timestamp, nonce string) {
 	// 读取请求体
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -115,19 +124,23 @@ func (s *CallbackServer) handlePostMessage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	log.Printf("Received POST body length: %d", len(body))
+
 	// 解密消息
 	plaintext, err := s.crypto.Decrypt(string(body))
 	if err != nil {
-		log.Printf("Decrypt failed: %v", err)
-		http.Error(w, "Decrypt failed", http.StatusInternalServerError)
+		log.Printf("Decrypt message failed: %v", err)
+		http.Error(w, fmt.Sprintf("Decrypt failed: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("Decrypted message: %s", string(plaintext))
 
 	// 解析消息
 	var msg wechat.Message
 	if err := json.Unmarshal(plaintext, &msg); err != nil {
-		log.Printf("Unmarshal message failed: %v, plaintext: %s", err, string(plaintext))
-		http.Error(w, "Parse message failed", http.StatusInternalServerError)
+		log.Printf("Unmarshal message failed: %v", err)
+		http.Error(w, fmt.Sprintf("Parse message failed: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -138,7 +151,7 @@ func (s *CallbackServer) handlePostMessage(w http.ResponseWriter, r *http.Reques
 	reply, err := s.handler.HandleMessage(&msg)
 	if err != nil {
 		log.Printf("Handle message failed: %v", err)
-		http.Error(w, "Handle message failed", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Handle message failed: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -161,6 +174,8 @@ func (s *CallbackServer) verifySignature(timestamp, nonce, echoStr, signature st
 	h := sha1.New()
 	h.Write([]byte(strings.Join(tmp, "")))
 	hash := fmt.Sprintf("%x", h.Sum(nil))
+	log.Printf("Verify signature: token=%s, ts=%s, nonce=%s, expected=%s, got=%s",
+		s.token, timestamp, nonce, hash, signature)
 	return hash == signature
 }
 
@@ -186,6 +201,8 @@ func (s *CallbackServer) sendReply(responseURL string, reply *wechat.ReplyMessag
 	respURL := fmt.Sprintf("%s&timestamp=%s&nonce=%s&msg_signature=%s",
 		responseURL, timestamp, nonce, signature)
 
+	log.Printf("Sending reply to: %s", respURL)
+
 	resp, err := http.Post(respURL, "application/json",
 		strings.NewReader(encrypted))
 	if err != nil {
@@ -193,9 +210,11 @@ func (s *CallbackServer) sendReply(responseURL string, reply *wechat.ReplyMessag
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+	log.Printf("Reply response: status=%d, body=%s", resp.StatusCode, string(respBody))
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("reply response status: %d, body: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("reply response status: %d", resp.StatusCode)
 	}
 
 	log.Printf("Reply sent successfully")
