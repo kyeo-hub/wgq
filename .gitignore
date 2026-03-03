@@ -41,6 +41,8 @@ temp/
 
 # SSH Keys (NEVER commit private keys)
 gitee_key
+gitee_key.old
+gitee_key.pub.old
 *.pem
 *.key
 
