@@ -126,7 +126,7 @@ if [ "$DOWNLOADED" = true ]; then
 else
     log_error "下载失败！"
     log_info "请手动下载并上传 wgq-linux-amd64.tar.gz 到 $INSTALL_DIR"
-    log_info "Gitee: https://gitee.com/kyeo-hub/wgq/releases"
+    log_info "Gitee: https://gitee.com/kyeo/wgq/releases"
     log_info "GitHub: https://github.com/kyeo-hub/wgq/releases"
     exit 1
 fi

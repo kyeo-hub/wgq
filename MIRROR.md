@@ -9,7 +9,7 @@
 ### 一键安装脚本（推荐）
 
 ```bash
-bash <(curl -fsSL https://gitee.com/kyeo-hub/wgq/raw/main/install-remote.sh) \
+bash <(curl -fsSL https://gitee.com/kyeo/wgq/raw/main/install-remote.sh) \
   <YOUR_TOKEN> \
   <YOUR_AES_KEY> \
   8888
@@ -17,14 +17,14 @@ bash <(curl -fsSL https://gitee.com/kyeo-hub/wgq/raw/main/install-remote.sh) \
 
 ### 手动下载
 
-访问 [Releases](https://gitee.com/kyeo-hub/wgq/releases) 下载最新版本的 `wgq-linux-amd64.tar.gz`
+访问 [Releases](https://gitee.com/kyeo/wgq/releases) 下载最新版本的 `wgq-linux-amd64.tar.gz`
 
 ## 同步说明
 
 本仓库会自动从 GitHub 主仓库同步代码和 Releases。
 
 - **GitHub**: https://github.com/kyeo-hub/wgq
-- **Gitee**: https://gitee.com/kyeo-hub/wgq
+- **Gitee**: https://gitee.com/kyeo/wgq
 
 ## 使用方式
 

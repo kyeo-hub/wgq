@@ -62,6 +62,7 @@ func main() {
 	callbackServer, err := server.NewCallbackServer(
 		cfg.WeChat.EncodingAESKey,
 		cfg.WeChat.Token,
+		cfg.Server.CallbackPath,
 		msgHandler,
 		cfg.Server.Addr,
 	)

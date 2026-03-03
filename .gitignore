@@ -5,6 +5,7 @@
 *.so
 *.dylib
 wgq
+wgq-linux-amd64.tar.gz
 
 # Test binary
 *.test
@@ -37,3 +38,12 @@ logs/
 # Temp files
 tmp/
 temp/
+
+# SSH Keys (NEVER commit private keys)
+gitee_key
+*.pem
+*.key
+
+# Build artifacts
+build/
+dist/

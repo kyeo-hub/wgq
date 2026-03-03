@@ -134,7 +134,7 @@ else
     echo "  4. 运行：cd /opt/wgq-bot && tar -xzf wgq-linux-amd64.tar.gz"
     echo ""
     log_info "或使用 Gitee 镜像（中国大陆）："
-    echo "  https://gitee.com/kyeo-hub/wgq/releases"
+    echo "  https://gitee.com/kyeo/wgq/releases"
     exit 1
 fi
 
